@@ -1,19 +1,19 @@
 #!/bin/sh
 ### BEGIN INIT INFO
-# Provides:          letsencrypt
+# Provides:          sentry
 # Required-Start:    $local_fs $network $syslog
 # Required-Stop:     $local_fs $network $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Description:       "init letsencrypt"
+# Description:       "sentry"
 ### END INIT INFO
 
 
-SCRIPT=/usr/local/sbin/scw-letsencrypt
+SCRIPT=/usr/local/sbin/scw-sentry
 RUNAS=root
 
-PIDFILE=/var/run/letsencrypt.pid
-LOGFILE=/var/log/letsencrypt.log
+PIDFILE=/var/run/sentry.pid
+LOGFILE=/var/log/sentry.log
 
 start() {
   if [ -f /var/run/$PIDNAME ] && kill -0 $(cat /var/run/$PIDNAME); then

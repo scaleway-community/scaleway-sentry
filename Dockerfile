@@ -40,8 +40,17 @@ RUN apt-get -q update \
       supervisor \
  && apt-get clean
 
+# Install Sentry
+RUN pip install -U virtualenv \
+ && virtualenv /www/sentry/ \
+ && /bin/bash -c "source /www/sentry/bin/activate && pip install -U sentry==8.2.3"
+
 # Patch rootfs
 COPY ./overlay /
+
+
+# Add sentry installation script
+RUN update-rc.d sentry defaults
 
 # Add letsencrypt
 # RUN update-rc.d letsencrypt defaults

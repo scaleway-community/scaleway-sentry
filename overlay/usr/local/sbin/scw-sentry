@@ -1,0 +1,234 @@
+#!/bin/bash
+
+set -x
+set -e
+
+if [ -f /etc/sentry/done ];
+then
+    exit 0
+fi
+
+/etc/init.d/supervisor force-stop
+/etc/init.d/supervisor stop
+lsof -i | grep "4444" | awk '{print $2}' | xargs kill -9
+
+source /www/sentry/bin/activate
+
+POSTGRES_PASSWORD=`< /dev/urandom tr -dc A-Z-a-z-0-9 | head -c\${1:-32};echo;`
+SENTRY_PASSWORD=`< /dev/urandom tr -dc A-Z-a-z-0-9 | head -c\${1:-8};echo;`
+SERVER_UUID=`scw-metadata --cached ID`
+
+sentry init /etc/sentry
+
+cat << EOF > /etc/sentry/sentry.conf.py
+
+# This file is just Python, with a touch of Django which means
+# you can inherit and tweak settings to your hearts content.
+from sentry.conf.server import *
+
+import os.path
+
+CONF_ROOT = os.path.dirname(__file__)
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'sentry.db.postgres',
+        'NAME': 'sentry',
+        'USER': 'postgres',
+        'PASSWORD': '$POSTGRES_PASSWORD',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
+}
+
+# You should not change this setting after your database has been created
+# unless you have altered all schemas first
+SENTRY_USE_BIG_INTS = True
+
+# If you're expecting any kind of real traffic on Sentry, we highly recommend
+# configuring the CACHES and Redis settings
+
+###########
+# General #
+###########
+
+# Instruct Sentry that this install intends to be run by a single organization
+# and thus various UI optimizations should be enabled.
+SENTRY_SINGLE_ORGANIZATION = True
+
+#########
+# Cache #
+#########
+
+# Sentry currently utilizes two separate mechanisms. While CACHES is not a
+# requirement, it will optimize several high throughput patterns.
+
+# If you wish to use memcached, install the dependencies and adjust the config
+# as shown:
+#
+#   pip install python-memcached
+#
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+#         'LOCATION': ['127.0.0.1:11211'],
+#     }
+# }
+
+# A primary cache is required for things such as processing events
+SENTRY_CACHE = 'sentry.cache.redis.RedisCache'
+
+#########
+# Queue #
+#########
+
+# See https://docs.getsentry.com/on-premise/server/queue/ for more
+# information on configuring your queue broker and workers. Sentry relies
+# on a Python framework called Celery to manage queues.
+
+BROKER_URL = 'redis://127.0.0.1:6379'
+
+###############
+# Rate Limits #
+###############
+
+# Rate limits apply to notification handlers and are enforced per-project
+# automatically.
+
+SENTRY_RATELIMITER = 'sentry.ratelimits.redis.RedisRateLimiter'
+
+##################
+# Update Buffers #
+##################
+
+# Buffers (combined with queueing) act as an intermediate layer between the
+# database and the storage API. They will greatly improve efficiency on large
+# numbers of the same events being sent to the API in a short amount of time.
+# (read: if you send any kind of real data to Sentry, you should enable buffers)
+
+SENTRY_BUFFER = 'sentry.buffer.redis.RedisBuffer'
+
+##########
+# Quotas #
+##########
+
+# Quotas allow you to rate limit individual projects or the Sentry install as
+# a whole.
+
+SENTRY_QUOTAS = 'sentry.quotas.redis.RedisQuota'
+
+########
+# TSDB #
+########
+
+# The TSDB is used for building charts as well as making things like per-rate
+# alerts possible.
+
+SENTRY_TSDB = 'sentry.tsdb.redis.RedisTSDB'
+
+###########
+# Digests #
+###########
+
+# The digest backend powers notification summaries.
+
+SENTRY_DIGESTS = 'sentry.digests.backends.redis.RedisBackend'
+
+################
+# File storage #
+################
+
+# Any Django storage backend is compatible with Sentry. For more solutions see
+# the django-storages package: https://django-storages.readthedocs.org/en/latest/
+
+SENTRY_FILESTORE = 'django.core.files.storage.FileSystemStorage'
+SENTRY_FILESTORE_OPTIONS = {
+    'location': '/tmp/sentry-files',
+}
+
+##############
+# Web Server #
+##############
+
+# If you're using a reverse SSL proxy, you should enable the X-Forwarded-Proto
+# header and uncomment the following settings
+#SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+#SESSION_COOKIE_SECURE = True
+#CSRF_COOKIE_SECURE = True
+#SENTRY_URL_PREFIX='https://$SERVER_UUID.pub.cloud.scaleway.com'
+
+# If you're not hosting at the root of your web server,
+# you need to uncomment and set it to the path where Sentry is hosted.
+# FORCE_SCRIPT_NAME = '/sentry'
+
+SENTRY_WEB_HOST = '127.0.0.1'
+SENTRY_WEB_PORT = 4444
+SENTRY_WEB_OPTIONS = {
+    # 'workers': 3,  # the number of web workers
+}
+
+###############
+# Mail Server #
+###############
+
+# For more information check Django's documentation:
+# https://docs.djangoproject.com/en/1.6/topics/email/
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+
+EMAIL_HOST = 'localhost'
+EMAIL_HOST_PASSWORD = ''
+EMAIL_HOST_USER = ''
+EMAIL_PORT = 25
+EMAIL_USE_TLS = False
+
+# The email address to send on behalf of
+SERVER_EMAIL = 'root@localhost'
+
+# If you're using mailgun for inbound mail, set your API key and configure a
+# route to forward to /api/hooks/mailgun/inbound/
+MAILGUN_API_KEY = ''
+
+SENTRY_ALLOW_REGISTRATION = False
+EOF
+
+cat << EOF >> /etc/sentry/config.yml
+
+redis.clusters:
+  default:
+    hosts:
+      0:
+        host: 127.0.0.1
+        port: 6379
+        # password: "my-secret-password"
+EOF
+
+su - postgres -c "psql -c \"ALTER USER postgres WITH ENCRYPTED PASSWORD '$POSTGRES_PASSWORD';\""
+su - postgres -c 'createdb -E utf-8 sentry'
+
+export SENTRY_CONF=/etc/sentry
+(echo "n") | sentry upgrade
+sentry createuser --email "root@localhost.com" --password "$SENTRY_PASSWORD" --superuser
+#sed -i "s/SERVER_ID/$SERVER_UUID/g" /etc/nginx/sites-available/default
+#openssl dhparam -out /etc/ssl/certs/dhparam.pem 2048
+#git clone https://github.com/letsencrypt/letsencrypt /opt/letsencrypt
+#cd /opt/letsencrypt
+#./letsencrypt-auto certonly -d $SERVER_UUID.pub.cloud.scaleway.com --register-unsafely-without-email --agree-tos
+
+/etc/init.d/supervisor force-stop
+/etc/init.d/supervisor stop
+sleep 1
+lsof -i | grep "4444" | awk '{print $2}' | xargs kill -9
+/etc/init.d/supervisor start
+/etc/init.d/nginx restart
+echo "mail: root@localhost.com" > /root/.credentials
+chmod 600 /root/.credentials
+echo "password:" $SENTRY_PASSWORD >> /root/.credentials
+
+
+update-rc.d sentry disable -f || true
+update-rc.d sentry remove -f || true
+crontab -l | { cat; echo "0 3 * * * SENTRY_CONF=/etc/sentry /www/sentry/bin/sentry cleanup --days=30 >> /var/log/sentry_crontab"; } | crontab -
+rm -fr /etc/init.d/sentry || true
+touch /etc/sentry/done
+rm -fr /var/log/sentry.log

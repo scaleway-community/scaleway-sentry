@@ -1,5 +1,18 @@
 #!/bin/bash
 
+if [ ! -f /etc/sentry/done ]
+then
 cat <<EOF
-Sentry
+We are installing Sentry, you can follow installation with the command below:
+
+$> tail -f /var/log/sentry.log
+$> /etc/update-motd.d/70-sentry
+
 EOF
+else
+cat << EOF
+The sentry installation is done, you can display your credentials with the command below:
+
+$> cat /root/.credentials
+EOF
+fi
