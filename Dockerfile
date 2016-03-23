@@ -46,7 +46,7 @@ RUN pip install -U virtualenv \
  && /bin/bash -c "source /www/sentry/bin/activate && pip install -U sentry==8.2.3"
 
 # Patch rootfs
-COPY ./overlay /
+COPY ./overlay ./overlay-${ARCH} /
 
 
 # Add sentry installation script
