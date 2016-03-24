@@ -52,8 +52,6 @@ COPY ./overlay ./overlay-${ARCH} /
 # Add sentry installation script
 RUN update-rc.d sentry defaults
 
-# Add letsencrypt
-# RUN update-rc.d letsencrypt defaults
 
 # Clean rootfs from image-builder
 RUN /usr/local/sbin/builder-leave
