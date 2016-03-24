@@ -5,7 +5,7 @@
 [![Run on Scaleway](https://img.shields.io/badge/Scaleway-run-69b4ff.svg)](https://cloud.scaleway.com/#/servers/new?image=coming-soon)
 
 
-Launch your Sentr app on Scaleway servers in minutes.
+Launch your Sentry app on Scaleway servers in minutes.
 
 <img src="http://blog.megaminerai.com/static/img/sponsor_logos/sentry-logo.png" width="400px" />
 
