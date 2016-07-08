@@ -1,6 +1,6 @@
 NAME =			sentry
 VERSION =		latest
-VERSION_ALIASES =	8.2.3 8.2 8
+VERSION_ALIASES =	8.6.0 8.6 8
 TITLE =			sentry
 DESCRIPTION =		Sentry is cross-platform crash reporting built with love https://getsentry.com
 DOC_URL =
