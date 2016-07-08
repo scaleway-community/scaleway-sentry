@@ -1,4 +1,4 @@
-## -*- docker-image-name: "scaleway/owncloud:latest" -*-
+## -*- docker-image-name: "scaleway/sentry:latest" -*-
 FROM scaleway/ubuntu:amd64-xenial
 # following 'FROM' lines are used dynamically thanks do the image-builder
 # which dynamically update the Dockerfile if needed.
@@ -18,7 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install packages
 RUN apt-get -q update \
- && apt-get -y -q upgrade \
+ && echo "O" | apt-get -y -q upgrade \
  && apt-get install -y -q \
       python-setuptools \
       python-pip \
@@ -27,8 +27,9 @@ RUN apt-get -q update \
       libxml2-dev \
       libz-dev \
       libffi-dev \
-      libssl-dev \
+      libjpeg-dev \
       libpq-dev \
+      libssl-dev \
       libyaml-dev \
       rabbitmq-server \
       git \
@@ -43,7 +44,7 @@ RUN apt-get -q update \
 # Install Sentry
 RUN pip install -U virtualenv \
  && virtualenv /www/sentry/ \
- && /bin/bash -c "source /www/sentry/bin/activate && pip install -U sentry==8.2.3"
+ && /bin/bash -c "source /www/sentry/bin/activate && pip install -U sentry==8.6.0"
 
 # Patch rootfs
 COPY ./overlay ./overlay-${ARCH} /

@@ -8,9 +8,8 @@ then
     exit 0
 fi
 
-/etc/init.d/supervisor force-stop
 /etc/init.d/supervisor stop
-lsof -i | grep "4444" | awk '{print $2}' | xargs kill -9
+sleep 5
 
 source /www/sentry/bin/activate
 
@@ -215,10 +214,8 @@ sentry createuser --email "root@localhost.com" --password "$SENTRY_PASSWORD" --s
 #cd /opt/letsencrypt
 #./letsencrypt-auto certonly -d $SERVER_UUID.pub.cloud.scaleway.com --register-unsafely-without-email --agree-tos
 
-/etc/init.d/supervisor force-stop
 /etc/init.d/supervisor stop
-sleep 1
-lsof -i | grep "4444" | awk '{print $2}' | xargs kill -9
+sleep 5
 /etc/init.d/supervisor start
 /etc/init.d/nginx restart
 echo "mail: root@localhost.com" > /root/.credentials
@@ -231,4 +228,3 @@ update-rc.d sentry remove -f || true
 crontab -l | { cat; echo "0 3 * * * SENTRY_CONF=/etc/sentry /www/sentry/bin/sentry cleanup --days=30 >> /var/log/sentry_crontab"; } | crontab -
 rm -fr /etc/init.d/sentry || true
 touch /etc/sentry/done
-rm -fr /var/log/sentry.log
